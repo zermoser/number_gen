@@ -1,87 +1,59 @@
 import React, { useState, useEffect, useRef } from 'react';
-import html2canvas from 'html2canvas';
+
+type ColorKey = 'emerald' | 'amber' | 'violet' | 'rose';
 
 interface NumberGroup {
   title: string;
   numbers: string[];
   subtitle?: string;
-  color: string;
+  color: ColorKey;
   icon: string;
 }
 
+const colorMap: Record<ColorKey, { bg: string; border: string; glow: string; text: string }> = {
+  emerald: {
+    bg: 'from-emerald-400 to-emerald-600',
+    border: 'border-emerald-200',
+    glow: 'shadow-emerald-500/20',
+    text: 'text-emerald-700'
+  },
+  amber: {
+    bg: 'from-amber-400 to-orange-500',
+    border: 'border-amber-200',
+    glow: 'shadow-amber-500/20',
+    text: 'text-amber-700'
+  },
+  violet: {
+    bg: 'from-violet-500 to-purple-600',
+    border: 'border-violet-200',
+    glow: 'shadow-violet-500/20',
+    text: 'text-violet-700'
+  },
+  rose: {
+    bg: 'from-rose-400 to-pink-600',
+    border: 'border-rose-200',
+    glow: 'shadow-rose-500/20',
+    text: 'text-rose-700'
+  }
+};
+
 const ThaiLotteryGenerator: React.FC = () => {
   const [numberGroups, setNumberGroups] = useState<NumberGroup[]>([]);
-  const [backgroundImage, setBackgroundImage] = useState<string>('');
   const [isAnimating, setIsAnimating] = useState<boolean>(false);
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const downloadRef = useRef<HTMLDivElement>(null);
 
-  // Premium background images
-  const backgroundImages = [
-    'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&h=1080&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=1920&h=1080&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1920&h=1080&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1920&h=1080&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1506197603052-3cc9c3a201bd?w=1920&h=1080&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=1920&h=1080&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=1920&h=1080&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?w=1920&h=1080&fit=crop&q=80'
-  ];
+  // Number generators
+  const generateTwoDigit = (): string => Math.floor(Math.random() * 100).toString().padStart(2, '0');
+  const generateSingleDigit = (): string => Math.floor(Math.random() * 10).toString();
+  const generateThreeDigit = (): string => Math.floor(Math.random() * 1000).toString().padStart(3, '0');
 
-  // Generate random two-digit number (00-99)
-  const generateTwoDigit = (): string => {
-    return Math.floor(Math.random() * 100).toString().padStart(2, '0');
-  };
-
-  // Generate random single-digit number (0-9)
-  const generateSingleDigit = (): string => {
-    return Math.floor(Math.random() * 10).toString();
-  };
-
-  // Generate random three-digit number (000-999)
-  const generateThreeDigit = (): string => {
-    return Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-  };
-
-  // Download as JPG function
-  const downloadAsJPG = async (): Promise<void> => {
-    if (!containerRef.current) return;
-    setIsDownloading(true);
-
-    try {
-      // import แล้ว ก็เรียกใช้ง่าย ๆ
-      const canvas = await html2canvas(containerRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: null,
-        width: containerRef.current.scrollWidth,
-        height: containerRef.current.scrollHeight,
-        scrollX: 0,
-        scrollY: 0,
-      });
-
-      const link = document.createElement('a');
-      link.download = `lottery-numbers-${Date.now()}.jpg`;
-      link.href = canvas.toDataURL('image/jpeg', 0.9);
-      link.click();
-    } catch (error) {
-      console.error('Download failed:', error);
-      alert('ไม่สามารถดาวน์โหลดได้ กรุณาลองใหม่อีกครั้ง');
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
-  // Generate all lottery numbers
+  // Generate lottery numbers
   const generateNumbers = (): void => {
     setIsAnimating(true);
-
-    // Select random background
-    const randomBg = backgroundImages[Math.floor(Math.random() * backgroundImages.length)];
-    setBackgroundImage(randomBg);
-
     setTimeout(() => {
-      const newGroups: NumberGroup[] = [
+      setNumberGroups([
         {
           title: 'เลขเบิ้ล',
           subtitle: 'หมายเลขนำโชค 6 ตัว',
@@ -105,82 +77,83 @@ const ThaiLotteryGenerator: React.FC = () => {
         },
         {
           title: 'เลขพิเศษ',
-          subtitle: 'หมายเลขพิเศษ 4 ตัว',
+          subtitle: 'เลขพิเศษ 4 ตัว',
           numbers: Array.from({ length: 4 }, () => generateThreeDigit()),
           color: 'rose',
           icon: '💎'
         }
-      ];
-
-      setNumberGroups(newGroups);
+      ]);
       setIsAnimating(false);
     }, 400);
   };
 
-  // Generate initial numbers on component mount
-  useEffect(() => {
-    generateNumbers();
-  }, []);
+  // Create preview for download
+  const downloadAsPreview = async () => {
+    if (!downloadRef.current) return;
+    setIsDownloading(true);
 
-  const getColorClasses = (color: string) => {
-    const colors = {
-      emerald: {
-        bg: 'from-emerald-400 via-emerald-500 to-emerald-600',
-        border: 'border-emerald-300/50',
-        glow: 'shadow-emerald-500/25',
-        accent: 'bg-emerald-100 text-emerald-800'
-      },
-      amber: {
-        bg: 'from-amber-400 via-yellow-500 to-orange-500',
-        border: 'border-amber-300/50',
-        glow: 'shadow-amber-500/25',
-        accent: 'bg-amber-100 text-amber-800'
-      },
-      violet: {
-        bg: 'from-violet-500 via-purple-500 to-indigo-600',
-        border: 'border-violet-300/50',
-        glow: 'shadow-violet-500/25',
-        accent: 'bg-violet-100 text-violet-800'
-      },
-      rose: {
-        bg: 'from-rose-400 via-pink-500 to-rose-600',
-        border: 'border-rose-300/50',
-        glow: 'shadow-rose-500/25',
-        accent: 'bg-rose-100 text-rose-800'
-      }
-    };
-    return colors[color as keyof typeof colors] || colors.emerald;
+    try {
+      // Dynamically import html2canvas
+      const html2canvas = await import('html2canvas');
+      const canvas = await html2canvas.default(downloadRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        width: 800,
+        height: 1000
+      });
+      setPreviewSrc(canvas.toDataURL('image/jpeg', 0.9));
+    } catch (error) {
+      console.error('Error creating preview:', error);
+      alert('เกิดข้อผิดพลาดในการสร้างภาพตัวอย่าง');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
+  // Confirm and trigger actual download
+  const confirmDownload = () => {
+    if (!previewSrc) return;
+    const link = document.createElement('a');
+    link.download = `lottery-${Date.now()}.jpg`;
+    link.href = previewSrc;
+    link.click();
+    setPreviewSrc(null);
+  };
+
+  const cancelPreview = () => setPreviewSrc(null);
+
+  useEffect(() => { generateNumbers(); }, []);
+
+  // Get the typed color classes
+  const getColorClasses = (color: ColorKey) => colorMap[color];
+
+  // Render each group
   const renderNumbers = (group: NumberGroup, index: number) => {
-    const colorClasses = getColorClasses(group.color);
+    const { bg, glow, text } = getColorClasses(group.color);
 
     if (group.title === 'ระวัง') {
       // Special layout for "ระวัง" pairs
       return (
-        <div key={index} className="h-full">
-          <div className="bg-white/15 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20 hover:border-white/40 transition-all duration-500 hover:shadow-3xl hover:scale-[1.02] h-full flex flex-col">
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center gap-3 mb-3">
-                <span className="text-4xl">{group.icon}</span>
-                <h3 className="text-3xl font-bold text-white drop-shadow-lg">{group.title}</h3>
-              </div>
-              <p className="text-white/80 text-base font-medium">{group.subtitle}</p>
+        <div key={index} className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+          <div className="text-center mb-4">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <span className="text-2xl">{group.icon}</span>
+              <h3 className={`text-xl font-bold ${text}`}>{group.title}</h3>
             </div>
-            <div className="grid grid-cols-2 gap-6 flex-1 items-center">
-              {[0, 2].map((startIndex, pairIndex) => (
-                <div key={pairIndex} className="relative group/pair">
-                  <div className={`bg-gradient-to-br ${colorClasses.bg} rounded-2xl p-6 text-center shadow-2xl ${colorClasses.glow} transform hover:scale-105 transition-all duration-300 border ${colorClasses.border}`}>
-                    <div className="text-4xl font-black text-white drop-shadow-lg tracking-wider">
-                      {group.numbers[startIndex]}{group.numbers[startIndex + 1]}
-                    </div>
-                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-white/30 rounded-full flex items-center justify-center">
-                      <span className="text-xs text-white font-bold">{pairIndex + 1}</span>
-                    </div>
+            <p className="text-gray-600 text-sm">{group.subtitle}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            {[0, 2].map((startIndex, pairIndex) => (
+              <div key={pairIndex} className="text-center">
+                <div className={`bg-gradient-to-r ${bg} rounded-lg p-4 shadow-md ${glow}`}>
+                  <div className="text-2xl font-bold text-white">
+                    {group.numbers[startIndex]}{group.numbers[startIndex + 1]}
                   </div>
                 </div>
-              ))}
-            </div>
+                <div className="text-xs text-gray-500 mt-1">คู่ที่ {pairIndex + 1}</div>
+              </div>
+            ))}
           </div>
         </div>
       );
@@ -189,27 +162,22 @@ const ThaiLotteryGenerator: React.FC = () => {
     if (group.title === 'เลขมงคล') {
       // 5x2 grid for "เลขมงคล"
       return (
-        <div key={index} className="h-full">
-          <div className="bg-white/15 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20 hover:border-white/40 transition-all duration-500 hover:shadow-3xl hover:scale-[1.02] h-full flex flex-col">
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center gap-3 mb-3">
-                <span className="text-4xl">{group.icon}</span>
-                <h3 className="text-3xl font-bold text-white drop-shadow-lg">{group.title}</h3>
-              </div>
-              <p className="text-white/80 text-base font-medium">{group.subtitle}</p>
+        <div key={index} className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+          <div className="text-center mb-4">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <span className="text-2xl">{group.icon}</span>
+              <h3 className={`text-xl font-bold ${text}`}>{group.title}</h3>
             </div>
-            <div className="grid grid-cols-5 gap-4 flex-1 content-center">
-              {group.numbers.map((number, numIndex) => (
-                <div key={numIndex} className="relative group/number">
-                  <div className={`bg-gradient-to-br ${colorClasses.bg} rounded-xl p-4 text-center shadow-xl ${colorClasses.glow} transform hover:scale-110 hover:rotate-3 transition-all duration-300 border ${colorClasses.border}`}>
-                    <div className="text-2xl font-black text-white drop-shadow-lg">{number}</div>
-                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-white/30 rounded-full flex items-center justify-center">
-                      <span className="text-xs text-white font-bold">{numIndex + 1}</span>
-                    </div>
-                  </div>
+            <p className="text-gray-600 text-sm">{group.subtitle}</p>
+          </div>
+          <div className="grid grid-cols-5 gap-3">
+            {group.numbers.map((number, numIndex) => (
+              <div key={numIndex} className="text-center">
+                <div className={`bg-gradient-to-r ${bg} rounded-lg p-3 shadow-md ${glow}`}>
+                  <div className="text-lg font-bold text-white">{number}</div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         </div>
       );
@@ -217,157 +185,220 @@ const ThaiLotteryGenerator: React.FC = () => {
 
     // Default layout for other groups
     return (
-      <div key={index} className="h-full">
-        <div className="bg-white/15 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20 hover:border-white/40 transition-all duration-500 hover:shadow-3xl hover:scale-[1.02] h-full flex flex-col">
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center gap-3 mb-3">
-              <span className="text-4xl">{group.icon}</span>
-              <h3 className="text-3xl font-bold text-white drop-shadow-lg">{group.title}</h3>
-            </div>
-            <p className="text-white/80 text-base font-medium">{group.subtitle}</p>
+      <div key={index} className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+        <div className="text-center mb-4">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <span className="text-2xl">{group.icon}</span>
+            <h3 className={`text-xl font-bold ${text}`}>{group.title}</h3>
           </div>
-          <div className={`grid ${group.title === 'เลขพิเศษ' ? 'grid-cols-2' : 'grid-cols-3'} gap-4 flex-1 content-center`}>
-            {group.numbers.map((number, numIndex) => (
-              <div key={numIndex} className="relative group/number">
-                <div className={`bg-gradient-to-br ${colorClasses.bg} rounded-2xl p-6 text-center shadow-2xl ${colorClasses.glow} transform hover:scale-110 hover:rotate-1 transition-all duration-300 border ${colorClasses.border}`}>
-                  <div className="text-3xl font-black text-white drop-shadow-lg tracking-wider">{number}</div>
-                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-white/30 rounded-full flex items-center justify-center">
-                    <span className="text-xs text-white font-bold">{numIndex + 1}</span>
-                  </div>
-                </div>
+          <p className="text-gray-600 text-sm">{group.subtitle}</p>
+        </div>
+        <div className={`grid ${group.title === 'เลขพิเศษ' ? 'grid-cols-2' : 'grid-cols-3'} gap-4`}>
+          {group.numbers.map((number, numIndex) => (
+            <div key={numIndex} className="text-center">
+              <div className={`bg-gradient-to-r ${bg} rounded-lg p-4 shadow-md ${glow}`}>
+                <div className="text-xl font-bold text-white">{number}</div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
     );
   };
 
   return (
-    <div
-      ref={containerRef}
-      className="min-h-screen bg-cover bg-center bg-no-repeat relative overflow-hidden transition-all duration-1000 ease-in-out"
-      style={{ backgroundImage: `url(${backgroundImage})` }}
-    >
-      {/* Animated gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/60 via-purple-900/40 to-pink-900/60 animate-pulse"></div>
-      <div className="absolute inset-0 bg-black/20"></div>
-
-      {/* Floating particles */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(8)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute w-3 h-3 bg-gradient-to-r from-yellow-400/30 to-pink-400/30 rounded-full animate-pulse"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 3}s`,
-              animationDuration: `${3 + Math.random() * 2}s`
-            }}
-          ></div>
-        ))}
-      </div>
-
-      {/* Content */}
-      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center p-6">
-        {/* Premium Header */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-4 mb-6">
-            <span className="text-8xl animate-bounce">🎰</span>
-            <div>
-              <h1 className="text-6xl lg:text-7xl font-black text-white mb-2 drop-shadow-2xl bg-gradient-to-r from-yellow-300 via-pink-300 to-purple-300 bg-clip-text text-transparent">
-                เครื่องสุ่มเลขมงคล
-              </h1>
-              <div className="h-1 w-32 bg-gradient-to-r from-yellow-400 via-pink-400 to-purple-400 rounded-full mx-auto"></div>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-4">
+      {/* Main Interface */}
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <span className="text-4xl">🎰</span>
+            <h1 className="text-3xl lg:text-4xl font-bold text-gray-800">
+              เครื่องสุ่มเลขมงคล
+            </h1>
           </div>
-          <p className="text-white/90 text-xl lg:text-2xl drop-shadow-lg font-medium">
-            ✨ สุ่มหมายเลขนำโชค เพื่อความมั่งคั่งและความสุข ✨
-          </p>
+          <p className="text-gray-600 text-lg">สุ่มหมายเลขนำโชค เพื่อความมั่งคั่งและความสุข</p>
         </div>
 
-        {/* Premium Numbers Container */}
-        <div className={`w-full max-w-7xl transition-all duration-700 ${isAnimating ? 'opacity-0 scale-90 rotate-1' : 'opacity-100 scale-100 rotate-0'}`}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+        {/* Numbers Container */}
+        <div className={`transition-all duration-500 ${isAnimating ? 'opacity-50 scale-95' : 'opacity-100 scale-100'}`}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             {numberGroups.map((group, index) => renderNumbers(group, index))}
           </div>
         </div>
 
-        {/* Premium Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-6 items-center justify-center">
-          {/* Generate Button */}
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
           <button
             onClick={generateNumbers}
             disabled={isAnimating}
             className={`
-              group relative px-12 py-6 text-2xl font-black text-white rounded-3xl shadow-2xl
-              bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600
-              hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500
-              transform hover:scale-110 active:scale-95 transition-all duration-300
+              px-8 py-3 text-lg font-semibold text-white rounded-lg shadow-lg
+              bg-gradient-to-r from-blue-500 to-purple-600
+              hover:from-blue-600 hover:to-purple-700
+              transform hover:scale-105 active:scale-95 transition-all duration-200
               disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
-              border-4 border-white/30 hover:border-white/50
-              shadow-purple-500/50 hover:shadow-purple-500/75
               ${isAnimating ? 'animate-pulse' : ''}
             `}
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 to-pink-400/20 rounded-3xl blur-xl group-hover:blur-2xl transition-all duration-300"></div>
-            <div className="relative flex items-center gap-3">
-              {isAnimating ? (
-                <>
-                  <div className="w-6 h-6 border-3 border-white/40 border-t-white rounded-full animate-spin"></div>
-                  <span>🎲 กำลังสุ่มเลขมงคล...</span>
-                </>
-              ) : (
-                <>
-                  <span className="text-3xl animate-spin group-hover:animate-pulse">🎲</span>
-                  <span>สุ่มใหม่อีกครั้ง</span>
-                  <span className="text-3xl">✨</span>
-                </>
-              )}
-            </div>
+            {isAnimating ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                <span>กำลังสุ่ม...</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span>🎲</span>
+                <span>สุ่มใหม่อีกครั้ง</span>
+              </div>
+            )}
           </button>
 
-          {/* Download Button */}
           <button
-            onClick={downloadAsJPG}
-            disabled={isDownloading}
+            onClick={downloadAsPreview}
+            disabled={isDownloading || numberGroups.length === 0}
             className={`
-              group relative px-10 py-6 text-xl font-black text-white rounded-3xl shadow-2xl
-              bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600
-              hover:from-emerald-500 hover:via-teal-500 hover:to-cyan-500
-              transform hover:scale-110 active:scale-95 transition-all duration-300
+              px-8 py-3 text-lg font-semibold text-white rounded-lg shadow-lg
+              bg-gradient-to-r from-green-500 to-emerald-600
+              hover:from-green-600 hover:to-emerald-700
+              transform hover:scale-105 active:scale-95 transition-all duration-200
               disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
-              border-4 border-white/30 hover:border-white/50
-              shadow-emerald-500/50 hover:shadow-emerald-500/75
               ${isDownloading ? 'animate-pulse' : ''}
             `}
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/20 to-cyan-400/20 rounded-3xl blur-xl group-hover:blur-2xl transition-all duration-300"></div>
-            <div className="relative flex items-center gap-3">
-              {isDownloading ? (
-                <>
-                  <div className="w-5 h-5 border-3 border-white/40 border-t-white rounded-full animate-spin"></div>
-                  <span>💾 กำลังดาวน์โหลด...</span>
-                </>
-              ) : (
-                <>
-                  <span className="text-2xl">📸</span>
-                  <span>ดาวน์โหลด JPG</span>
-                  <span className="text-2xl">💾</span>
-                </>
-              )}
-            </div>
+            {isDownloading ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                <span>กำลังเตรียม...</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span>📸</span>
+                <span>ดาวน์โหลด JPG</span>
+              </div>
+            )}
           </button>
         </div>
 
-        <div className="mt-8 text-center">
-          <p className="text-white/80 text-lg drop-shadow-lg font-medium">
-            🙏 ขอให้โชคดี มีความสุข และร่ำรวย! 🍀💰
-          </p>
+        <div className="mt-6 text-center">
+          <p className="text-gray-600">🙏 ขอให้โชคดี มีความสุข และร่ำรวย! 🍀💰</p>
         </div>
       </div>
 
+      {/* Hidden Download Template */}
+      <div
+        ref={downloadRef}
+        className="fixed -top-[9999px] left-0 w-[800px] bg-white p-8"
+        style={{ fontFamily: 'Arial, sans-serif' }}
+      >
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-800 mb-2">🎰 เลขมงคลประจำวัน</h1>
+          <p className="text-lg text-gray-600">วันที่ {new Date().toLocaleDateString('th-TH')}</p>
+          <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-purple-600 mx-auto mt-4 rounded"></div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          {numberGroups.map((group, index) => {
+            const { bg, text } = getColorClasses(group.color);
+
+            if (group.title === 'ระวัง') {
+              return (
+                <div key={index} className="bg-gray-50 rounded-lg p-6 border-2 border-gray-200">
+                  <div className="text-center mb-4">
+                    <h3 className={`text-xl font-bold ${text} mb-1`}>
+                      {group.icon} {group.title}
+                    </h3>
+                    <p className="text-sm text-gray-600">{group.subtitle}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    {[0, 2].map((startIndex, pairIndex) => (
+                      <div key={pairIndex} className="text-center">
+                        <div className={`bg-gradient-to-r ${bg} rounded-lg p-4`}>
+                          <div className="text-2xl font-bold text-white">
+                            {group.numbers[startIndex]}{group.numbers[startIndex + 1]}
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">คู่ที่ {pairIndex + 1}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            }
+
+            if (group.title === 'เลขมงคล') {
+              return (
+                <div key={index} className="bg-gray-50 rounded-lg p-6 border-2 border-gray-200 col-span-2">
+                  <div className="text-center mb-4">
+                    <h3 className={`text-xl font-bold ${text} mb-1`}>
+                      {group.icon} {group.title}
+                    </h3>
+                    <p className="text-sm text-gray-600">{group.subtitle}</p>
+                  </div>
+                  <div className="grid grid-cols-5 gap-3">
+                    {group.numbers.map((number, numIndex) => (
+                      <div key={numIndex} className="text-center">
+                        <div className={`bg-gradient-to-r ${bg} rounded-lg p-3`}>
+                          <div className="text-lg font-bold text-white">{number}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div key={index} className="bg-gray-50 rounded-lg p-6 border-2 border-gray-200">
+                <div className="text-center mb-4">
+                  <h3 className={`text-xl font-bold ${text} mb-1`}>
+                    {group.icon} {group.title}
+                  </h3>
+                  <p className="text-sm text-gray-600">{group.subtitle}</p>
+                </div>
+                <div className={`grid ${group.title === 'เลขพิเศษ' ? 'grid-cols-2' : 'grid-cols-3'} gap-3`}>
+                  {group.numbers.map((number, numIndex) => (
+                    <div key={numIndex} className="text-center">
+                      <div className={`bg-gradient-to-r ${bg} rounded-lg p-3`}>
+                        <div className="text-lg font-bold text-white">{number}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="text-center mt-8 pt-6 border-t border-gray-200">
+          <p className="text-gray-600">🙏 ขอให้โชคดี มีความสุข และร่ำรวย! 🍀💰</p>
+        </div>
+      </div>
+
+      {/* Preview Modal */}
+      {previewSrc && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl max-h-[90vh] overflow-auto">
+            <h3 className="text-xl font-bold mb-4 text-center">ตัวอย่างภาพที่จะดาวน์โหลด</h3>
+            <img src={previewSrc} alt="Preview" className="max-w-full h-auto mb-4 rounded-lg shadow-lg" />
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={confirmDownload}
+                className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+              >
+                ✅ ดาวน์โหลด
+              </button>
+              <button
+                onClick={cancelPreview}
+                className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                ❌ ยกเลิก
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
