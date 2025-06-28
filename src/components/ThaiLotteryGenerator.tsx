@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import html2canvas from 'html2canvas';
 
 interface NumberGroup {
   title: string;
@@ -12,6 +13,8 @@ const ThaiLotteryGenerator: React.FC = () => {
   const [numberGroups, setNumberGroups] = useState<NumberGroup[]>([]);
   const [backgroundImage, setBackgroundImage] = useState<string>('');
   const [isAnimating, setIsAnimating] = useState<boolean>(false);
+  const [isDownloading, setIsDownloading] = useState<boolean>(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Premium background images
   const backgroundImages = [
@@ -38,6 +41,35 @@ const ThaiLotteryGenerator: React.FC = () => {
   // Generate random three-digit number (000-999)
   const generateThreeDigit = (): string => {
     return Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  };
+
+  // Download as JPG function
+  const downloadAsJPG = async (): Promise<void> => {
+    if (!containerRef.current) return;
+    setIsDownloading(true);
+
+    try {
+      // import แล้ว ก็เรียกใช้ง่าย ๆ
+      const canvas = await html2canvas(containerRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: null,
+        width: containerRef.current.scrollWidth,
+        height: containerRef.current.scrollHeight,
+        scrollX: 0,
+        scrollY: 0,
+      });
+
+      const link = document.createElement('a');
+      link.download = `lottery-numbers-${Date.now()}.jpg`;
+      link.href = canvas.toDataURL('image/jpeg', 0.9);
+      link.click();
+    } catch (error) {
+      console.error('Download failed:', error);
+      alert('ไม่สามารถดาวน์โหลดได้ กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   // Generate all lottery numbers
@@ -126,8 +158,8 @@ const ThaiLotteryGenerator: React.FC = () => {
     if (group.title === 'ระวัง') {
       // Special layout for "ระวัง" pairs
       return (
-        <div key={index} className="group">
-          <div className="bg-white/15 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20 hover:border-white/40 transition-all duration-500 hover:shadow-3xl hover:scale-[1.02]">
+        <div key={index} className="h-full">
+          <div className="bg-white/15 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20 hover:border-white/40 transition-all duration-500 hover:shadow-3xl hover:scale-[1.02] h-full flex flex-col">
             <div className="text-center mb-6">
               <div className="inline-flex items-center gap-3 mb-3">
                 <span className="text-4xl">{group.icon}</span>
@@ -135,7 +167,7 @@ const ThaiLotteryGenerator: React.FC = () => {
               </div>
               <p className="text-white/80 text-base font-medium">{group.subtitle}</p>
             </div>
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-2 gap-6 flex-1 items-center">
               {[0, 2].map((startIndex, pairIndex) => (
                 <div key={pairIndex} className="relative group/pair">
                   <div className={`bg-gradient-to-br ${colorClasses.bg} rounded-2xl p-6 text-center shadow-2xl ${colorClasses.glow} transform hover:scale-105 transition-all duration-300 border ${colorClasses.border}`}>
@@ -157,8 +189,8 @@ const ThaiLotteryGenerator: React.FC = () => {
     if (group.title === 'เลขมงคล') {
       // 5x2 grid for "เลขมงคล"
       return (
-        <div key={index} className="group">
-          <div className="bg-white/15 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20 hover:border-white/40 transition-all duration-500 hover:shadow-3xl hover:scale-[1.02]">
+        <div key={index} className="h-full">
+          <div className="bg-white/15 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20 hover:border-white/40 transition-all duration-500 hover:shadow-3xl hover:scale-[1.02] h-full flex flex-col">
             <div className="text-center mb-6">
               <div className="inline-flex items-center gap-3 mb-3">
                 <span className="text-4xl">{group.icon}</span>
@@ -166,7 +198,7 @@ const ThaiLotteryGenerator: React.FC = () => {
               </div>
               <p className="text-white/80 text-base font-medium">{group.subtitle}</p>
             </div>
-            <div className="grid grid-cols-5 gap-4">
+            <div className="grid grid-cols-5 gap-4 flex-1 content-center">
               {group.numbers.map((number, numIndex) => (
                 <div key={numIndex} className="relative group/number">
                   <div className={`bg-gradient-to-br ${colorClasses.bg} rounded-xl p-4 text-center shadow-xl ${colorClasses.glow} transform hover:scale-110 hover:rotate-3 transition-all duration-300 border ${colorClasses.border}`}>
@@ -185,8 +217,8 @@ const ThaiLotteryGenerator: React.FC = () => {
 
     // Default layout for other groups
     return (
-      <div key={index} className="group">
-        <div className="bg-white/15 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20 hover:border-white/40 transition-all duration-500 hover:shadow-3xl hover:scale-[1.02]">
+      <div key={index} className="h-full">
+        <div className="bg-white/15 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20 hover:border-white/40 transition-all duration-500 hover:shadow-3xl hover:scale-[1.02] h-full flex flex-col">
           <div className="text-center mb-6">
             <div className="inline-flex items-center gap-3 mb-3">
               <span className="text-4xl">{group.icon}</span>
@@ -194,7 +226,7 @@ const ThaiLotteryGenerator: React.FC = () => {
             </div>
             <p className="text-white/80 text-base font-medium">{group.subtitle}</p>
           </div>
-          <div className={`grid ${group.title === 'เลขพิเศษ' ? 'grid-cols-2' : 'grid-cols-3'} gap-4`}>
+          <div className={`grid ${group.title === 'เลขพิเศษ' ? 'grid-cols-2' : 'grid-cols-3'} gap-4 flex-1 content-center`}>
             {group.numbers.map((number, numIndex) => (
               <div key={numIndex} className="relative group/number">
                 <div className={`bg-gradient-to-br ${colorClasses.bg} rounded-2xl p-6 text-center shadow-2xl ${colorClasses.glow} transform hover:scale-110 hover:rotate-1 transition-all duration-300 border ${colorClasses.border}`}>
@@ -213,6 +245,7 @@ const ThaiLotteryGenerator: React.FC = () => {
 
   return (
     <div
+      ref={containerRef}
       className="min-h-screen bg-cover bg-center bg-no-repeat relative overflow-hidden transition-all duration-1000 ease-in-out"
       style={{ backgroundImage: `url(${backgroundImage})` }}
     >
@@ -222,10 +255,10 @@ const ThaiLotteryGenerator: React.FC = () => {
 
       {/* Floating particles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(6)].map((_, i) => (
+        {[...Array(8)].map((_, i) => (
           <div
             key={i}
-            className="absolute w-2 h-2 bg-white/20 rounded-full animate-pulse"
+            className="absolute w-3 h-3 bg-gradient-to-r from-yellow-400/30 to-pink-400/30 rounded-full animate-pulse"
             style={{
               left: `${Math.random() * 100}%`,
               top: `${Math.random() * 100}%`,
@@ -256,13 +289,14 @@ const ThaiLotteryGenerator: React.FC = () => {
 
         {/* Premium Numbers Container */}
         <div className={`w-full max-w-7xl transition-all duration-700 ${isAnimating ? 'opacity-0 scale-90 rotate-1' : 'opacity-100 scale-100 rotate-0'}`}>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
             {numberGroups.map((group, index) => renderNumbers(group, index))}
           </div>
         </div>
 
-        {/* Premium Generate Button */}
-        <div className="text-center">
+        {/* Premium Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-6 items-center justify-center">
+          {/* Generate Button */}
           <button
             onClick={generateNumbers}
             disabled={isAnimating}
@@ -294,13 +328,46 @@ const ThaiLotteryGenerator: React.FC = () => {
             </div>
           </button>
 
-          <div className="mt-6 text-center">
-            <p className="text-white/80 text-lg drop-shadow-lg font-medium">
-              🙏 ขอให้โชคดี มีความสุข และร่ำรวย! 🍀💰
-            </p>
-          </div>
+          {/* Download Button */}
+          <button
+            onClick={downloadAsJPG}
+            disabled={isDownloading}
+            className={`
+              group relative px-10 py-6 text-xl font-black text-white rounded-3xl shadow-2xl
+              bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600
+              hover:from-emerald-500 hover:via-teal-500 hover:to-cyan-500
+              transform hover:scale-110 active:scale-95 transition-all duration-300
+              disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
+              border-4 border-white/30 hover:border-white/50
+              shadow-emerald-500/50 hover:shadow-emerald-500/75
+              ${isDownloading ? 'animate-pulse' : ''}
+            `}
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/20 to-cyan-400/20 rounded-3xl blur-xl group-hover:blur-2xl transition-all duration-300"></div>
+            <div className="relative flex items-center gap-3">
+              {isDownloading ? (
+                <>
+                  <div className="w-5 h-5 border-3 border-white/40 border-t-white rounded-full animate-spin"></div>
+                  <span>💾 กำลังดาวน์โหลด...</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-2xl">📸</span>
+                  <span>ดาวน์โหลด JPG</span>
+                  <span className="text-2xl">💾</span>
+                </>
+              )}
+            </div>
+          </button>
+        </div>
+
+        <div className="mt-8 text-center">
+          <p className="text-white/80 text-lg drop-shadow-lg font-medium">
+            🙏 ขอให้โชคดี มีความสุข และร่ำรวย! 🍀💰
+          </p>
         </div>
       </div>
+
     </div>
   );
 };
